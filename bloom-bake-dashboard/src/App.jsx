@@ -2845,7 +2845,7 @@ const RequestDetailsModal = ({ request, onClose, setNotification }) => {
                     console.log("Successfully deleted image for rejected order.");
                 } catch (deleteError) {
                     // We log this error but don't stop the process.
-                    // It's possible the image was already deleted or the URL was invalid.
+                    // It's possible the image was already deleted or the URL was invalid. 
                     console.error("Could not delete image for rejected order:", deleteError);
                 }
             } 

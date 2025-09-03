@@ -32,7 +32,7 @@ export const PermissionsProvider = ({ children }) => {
   const [permissions, setPermissions] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  useEffect(() => { 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userRolesRef = doc(db, 'user_roles', user.uid);

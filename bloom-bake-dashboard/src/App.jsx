@@ -32,7 +32,7 @@ export const PermissionsProvider = ({ children }) => {
   const [permissions, setPermissions] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { 
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const userRolesRef = doc(db, 'user_roles', user.uid);
@@ -2838,17 +2838,17 @@ const RequestDetailsModal = ({ request, onClose, setNotification }) => {
             });
 
             // If the rejected request has an image URL, delete the image from Storage.
-            if (requestToReject.imageUrl) {
-                try {
-                    const imageRef = ref(storage, requestToReject.imageUrl);
-                    await deleteObject(imageRef);
-                    console.log("Successfully deleted image for rejected order.");
-                } catch (deleteError) {
-                    // We log this error but don't stop the process.
-                    // It's possible the image was already deleted or the URL was invalid. 
-                    console.error("Could not delete image for rejected order:", deleteError);
-                }
-            } 
+        if (requestToReject.imageUrl) {
+            try {
+                const imageRef = ref(storage, requestToReject.imageUrl);
+                await deleteObject(imageRef);
+                console.log("Successfully deleted image for rejected order.");
+            } catch (deleteError) {
+                // We log this error but don't stop the process.
+                // It's possible the image was already deleted or the URL was invalid.
+                console.error("Could not delete image for rejected order:", deleteError);
+            }
+        }
             setNotification({ type: 'success', message: 'Request rejected.' });
             onClose();
         } catch (error) {
@@ -3835,6 +3835,8 @@ const CakeDesignsPage = ({ cakeDesigns, products, flavors, setNotification }) =>
     const [selectedDesign, setSelectedDesign] = useState(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const { permissions } = usePermissions();
+    const [filters, setFilters] = useState({ category: '', cakeType: '', flavor: '' });
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
     useEffect(() => {
         const handlePopState = (event) => {
@@ -3854,6 +3856,19 @@ const CakeDesignsPage = ({ cakeDesigns, products, flavors, setNotification }) =>
             window.removeEventListener('popstate', handlePopState);
         };
     }, []); // The empty array means this setup runs only once.
+
+    const filteredDesigns = useMemo(() => {
+        // If no filters are active, return all designs
+        if (!filters.category && !filters.cakeType && !filters.flavor) {
+            return cakeDesigns;
+        }
+        return cakeDesigns.filter(design => {
+            const categoryMatch = filters.category ? design.category === filters.category : true;
+            const cakeTypeMatch = filters.cakeType ? design.cakeType === filters.cakeType : true;
+            const flavorMatch = filters.flavor ? design.flavor === filters.flavor : true;
+            return categoryMatch && cakeTypeMatch && flavorMatch;
+        });
+    }, [cakeDesigns, filters]);
 
     const handleAddNew = () => {
         setSelectedDesign(null); // Ensure we are in "add" mode
@@ -3877,16 +3892,19 @@ const CakeDesignsPage = ({ cakeDesigns, products, flavors, setNotification }) =>
         <main className="p-4 sm:p-6 lg:p-8 bg-gray-50">
             <div className="max-w-6xl mx-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Cakes Gallery</h2>
-                    {permissions?.cakeDesigns?.edit && (
-                         <button onClick={handleAddNew} className="bg-[#be0b73] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#a10a62] transition">
-                            Add New Design
-                        </button>
-                    )}
+                    <div className="flex items-center gap-4">
+                        {permissions?.cakeDesigns?.edit && (
+                                <button onClick={handleAddNew} className="bg-[#be0b73] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#a10a62] transition">
+                                    Add New Design
+                                </button>
+                            )}
+                        <button onClick={() => setIsFilterModalOpen(true)} className="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition">Filter</button>
+                        <button onClick={() => setFilters({ category: '', cakeType: '', flavor: '' })} className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition">Reset</button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {cakeDesigns.map((design) => (
+                    {filteredDesigns.map((design) => (
                         <div key={design.id} className="bg-white rounded-xl shadow-lg overflow-hidden group">
                             <div className="relative">
                                 <img src={design.imageUrl} alt={design.designName} className="w-full h-48 object-cover" />
@@ -3905,14 +3923,14 @@ const CakeDesignsPage = ({ cakeDesigns, products, flavors, setNotification }) =>
                             </div>
                             <div className="p-4">
                                 <h3 className="font-bold text-gray-800 truncate">{design.designName}</h3>
-                                <p className="text-sm text-gray-600">{design.cakeType} - {design.flavor}</p>
+                                <p className="text-sm text-gray-600">{design.category} - {design.cakeType} - {design.flavor}</p>
                                 <p className="text-sm text-gray-500">{design.sizeCount}</p>
                                 <p className="mt-2 font-semibold text-lg text-[#a10a62]">₹{design.price?.toLocaleString('en-IN')}</p>
                             </div>
                         </div>
                     ))}
                 </div>
-                 {cakeDesigns.length === 0 && (
+                 {filteredDesigns.length === 0 && (
                     <div className="text-center py-16 bg-white rounded-xl shadow-lg">
                         <p className="text-gray-500">No cake designs have been added yet.</p>
                         <p className="text-gray-400 text-sm mt-2">Click "Add New Design" to get started.</p>
@@ -3949,6 +3967,18 @@ const CakeDesignsPage = ({ cakeDesigns, products, flavors, setNotification }) =>
                     setNotification={setNotification}
                 />
             )}
+            {isFilterModalOpen && (
+                <CakeDesignFilterModal
+                    initialFilters={filters}
+                    onApply={(newFilters) => {
+                        setFilters(newFilters);
+                        setIsFilterModalOpen(false);
+                    }}
+                    onClose={() => setIsFilterModalOpen(false)}
+                    products={products}
+                    flavors={flavors}
+                />
+            )}
         </main>
     );
 };
@@ -3958,6 +3988,7 @@ const DesignModal = ({ design, onClose, setNotification, products, flavors }) =>
         designName: design?.designName || '',
         cakeType: design?.cakeType || '',
         flavor: design?.flavor || '',
+        category: design?.category || 'Special',
         sizeCount: design?.sizeCount || '',
         price: design?.price || '',
         description: design?.description || '',
@@ -4055,6 +4086,19 @@ const DesignModal = ({ design, onClose, setNotification, products, flavors }) =>
                     <h3 className="text-xl font-bold text-gray-800 mb-6">{design ? 'Edit Cake Design' : 'Add New Cake Design'}</h3>
                     <div className="space-y-4">
                          <input type="text" name="designName" placeholder="Design Name" value={formData.designName} onChange={handleInputChange} required className={formInputClasses} />
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Category</label>
+                            <select 
+                                name="category" 
+                                value={formData.category} 
+                                onChange={handleInputChange} 
+                                className={formInputClasses}
+                            >
+                                <option>Special</option>
+                                <option>Birthday</option>
+                                <option>Anniversary</option>
+                            </select>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <SearchableDropdown name="cakeType" options={products} value={formData.cakeType} onChange={handleInputChange} placeholder="Cake Type" />
                             <SearchableDropdown name="flavor" options={flavors} value={formData.flavor} onChange={handleInputChange} placeholder="Flavor" />
@@ -4122,6 +4166,63 @@ const DeleteDesignModal = ({ design, onClose, setNotification }) => {
                     <button onClick={handleDelete} disabled={isDeleting} className="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition disabled:bg-red-300">
                         {isDeleting ? 'Deleting...' : 'Delete'}
                     </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CakeDesignFilterModal = ({ initialFilters, onApply, onClose, products, flavors }) => {
+    const [localFilters, setLocalFilters] = useState(initialFilters);
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setLocalFilters(prev => ({ ...prev, [name]: value }));
+    };
+    
+    // This is for the SearchableDropdown component
+    const handleDropdownChange = (e) => {
+        const { name, value } = e.target;
+        setLocalFilters(prev => ({...prev, [name]: value}));
+    }
+
+    const handleResetInModal = () => {
+        setLocalFilters({ category: '', cakeType: '', flavor: '' });
+    };
+
+    const isAnyFilterActive = localFilters.category || localFilters.cakeType || localFilters.flavor;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+                <div className="p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold text-gray-800">Filter Designs</h3>
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><Icon name="close" /></button>
+                    </div>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Category</label>
+                            <select name="category" value={localFilters.category} onChange={handleInputChange} className="form-input rounded-lg border-gray-300 w-full p-3">
+                                <option value="">All Categories</option>
+                                <option>Special</option>
+                                <option>Birthday</option>
+                                <option>Anniversary</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Cake Type</label>
+                            <SearchableDropdown name="cakeType" options={products} value={localFilters.cakeType} onChange={handleDropdownChange} placeholder="All Cake Types" />
+                        </div>
+                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Flavor</label>
+                            <SearchableDropdown name="flavor" options={flavors} value={localFilters.flavor} onChange={handleDropdownChange} placeholder="All Flavors" />
+                        </div>
+                    </div>
+                    <div className="flex justify-end items-center mt-6 space-x-4">
+                        <button onClick={handleResetInModal} className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Reset</button>
+                        <button onClick={() => onApply(localFilters)} disabled={!isAnyFilterActive} className="bg-[#be0b73] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#a10a62] transition disabled:bg-[#f2b8d9] disabled:cursor-not-allowed">Apply Filters</button>
+                    </div>
                 </div>
             </div>
         </div>
